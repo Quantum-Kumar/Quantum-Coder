@@ -1,0 +1,287 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.fft import fft
+from scipy.interpolate import interp1d
+from scipy.optimize import minimize_scalar
+from scipy.signal import blackmanharris
+import os
+from joblib import Parallel, delayed
+import multiprocessing
+
+# -------------------------------
+# 1. Configuration and Setup
+# -------------------------------
+
+# Create a directory to save the plots
+output_dir = 'pareto_plots'
+os.makedirs(output_dir, exist_ok=True)
+
+# Update plotting parameters for better aesthetics
+plt.rcParams.update({
+    'font.size': 20,
+    'axes.titlesize': 22,
+    'axes.labelsize': 22,
+    'xtick.labelsize': 18,
+    'ytick.labelsize': 18,
+    'legend.fontsize': 18,
+    'figure.dpi': 300,
+    'axes.linewidth': 1.5,
+    'lines.linewidth': 2,
+    'lines.markersize': 8,
+})
+# -------------------------------
+# 2. Define Constants and Parameters
+# -------------------------------
+
+# Constants
+omega_0 = 1.0
+np_val = 4.0
+omega_est = omega_0
+ns = 30
+nspad = 1000
+
+# Squeezing parameters
+chi_values = [0, 0.0999, 0.1999, 0.2999, 0.3999]
+J_values = [10, 100, 1000]
+
+# Seed for reproducibility
+np.random.seed(37)
+
+# Parameters for noise
+sigma = 0.03 * omega_0  # 3% of omega_0
+dsn = 10000  # Number of noisy samples (reduced for faster execution)
+
+# Define alpha and beta values
+alpha_values = np.linspace(0, 2 * np.pi, 32)  # 30 points from 0 to 2pi
+beta_values = np.linspace(0,  np.pi, 32)        # 30 points from 0 to pi
+
+# -------------------------------
+# 3. Define the Expectation Function
+# -------------------------------
+
+def jalphabeta(alpha, beta, chi, omega, t, J):
+    """
+    Computes the expectation value based on the given parameters.
+    """
+    return J * np.sin(beta) * (np.cos(chi) ** (2 * J - 1)) * np.cos(alpha - omega * t)
+
+# -------------------------------
+# 4. Define the FFT Function with Padding
+# -------------------------------
+
+def gfft_sig(chi, omega_0, alpha, beta, np_val, omega_est, ns, nspad, J):
+    """
+    Performs BMH FFT on the padded data and returns the frequency and power spectrum.
+    """
+    T_max = np_val * (2 * np.pi) / omega_est
+    delta_t = (np_val / (ns - 1)) * (2 * np.pi) / omega_est
+    time_sampling = np.linspace(0, T_max, ns)
+
+    # Generate Blackman-Harris window
+    window = blackmanharris(ns)
+
+    # Data calculation with window applied
+    data = np.array([jalphabeta(alpha, beta, chi, omega_0, t, J) for t in time_sampling]) * window
+
+    # Zero-padding
+    data_padded = np.pad(data, (0, nspad - len(data)), 'constant')
+    spectrum_length = len(data_padded) // 2
+    freq_range = (2 * np.pi) / ((nspad - 1) * delta_t) * np.arange(spectrum_length)
+    fft_data = np.abs(fft(data_padded))[:spectrum_length] ** 2
+    return np.column_stack((freq_range, fft_data))
+
+
+# -------------------------------
+# 5. Define the FFT Data Generation Function
+# -------------------------------
+
+def data_fft(alpha, beta, chi, omega_0, np_val, omega_est, ns, nspad, J, sigma, dsn):
+    """
+    Generates FFT data with added noise.
+    """
+    delta_omega = np.random.normal(0, sigma, dsn)
+    fft_results = []
+    for delta in delta_omega:
+        current_omega = omega_0 + delta
+        fft_result = gfft_sig(chi, current_omega, alpha, beta, np_val, omega_est, ns, nspad, J)
+        fft_results.append(fft_result)
+    return fft_results
+
+# -------------------------------
+# 6. Define the Processing Function for Each Parameter Combination
+# -------------------------------
+
+def process_combination(J, chi, alpha, beta):
+    """
+    Processes a single combination of parameters:
+    - Generates FFT data with noise.
+    - Computes SNR and Relative Error.
+    Returns the results or None if an error occurs.
+    """
+    try:
+        # Generate FFT data with noise
+        fft_data = data_fft(alpha, beta, chi, omega_0, np_val, omega_est, ns, nspad, J, sigma, dsn)
+        
+        # Convert list of arrays to 2D array: (dsn, spectrum_length, 2)
+        fft_array = np.array(fft_data)  # Shape: (dsn, spectrum_length, 2)
+        
+        # Extract frequency and power
+        freq_values = fft_array[0, :, 0]  # Frequencies are same across all FFTs
+        power_values = fft_array[:, :, 1]  # Shape: (dsn, spectrum_length)
+        
+        # Calculate average and standard deviation across dsn
+        fft_avg = np.mean(power_values, axis=0)  # Shape: (spectrum_length,)
+        fft_stddev = np.std(power_values, axis=0)  # Shape: (spectrum_length,)
+        
+        # Interpolation to find max peak of fft_avg
+        fft_avg_interp = interp1d(freq_values, fft_avg, kind='cubic')
+        max_peak_freq = minimize_scalar(lambda x: -fft_avg_interp(x),
+                                       bounds=(freq_values[0], freq_values[-1]),
+                                       method='bounded').x
+        
+        # Interpolation of SNR data
+        snr_data = np.divide(fft_avg, fft_stddev, out=np.zeros_like(fft_avg), where=fft_stddev!=0)
+        snr_interp = interp1d(freq_values, snr_data, kind='cubic', bounds_error=False, fill_value="extrapolate")
+        max_snr = snr_interp(max_peak_freq)
+        
+        # Relative Error in Frequency
+        epsilon = 1e-15  # Small value to prevent division by near-zero issues
+        relative_error_freq = np.abs(1 - (max_peak_freq / (omega_0 + epsilon)))
+        
+        # Store actual alpha and beta (not normalized)
+        alpha_actual = alpha  # 0 to 2pi
+        beta_actual = beta    # 0 to pi
+        
+        return (J, chi, alpha_actual, beta_actual, max_snr, relative_error_freq)
+    
+    except Exception as e:
+        print(f"Error processing J={J}, chi={chi}, alpha={alpha}, beta={beta}: {e}")
+        return None
+
+# -------------------------------
+# 7. Perform Parallel Processing Using Joblib
+# -------------------------------
+
+def main():
+    # Generate all parameter combinations
+    param_combinations = []
+    for J in J_values:
+        for chi in chi_values:
+            for alpha in alpha_values:
+                for beta in beta_values:
+                    param_combinations.append((J, chi, alpha, beta))
+    
+    # Determine the number of available CPU cores
+    num_cores = multiprocessing.cpu_count()
+    
+    print("Starting parallel data processing...")
+    
+    # Perform parallel processing
+    results = Parallel(n_jobs=num_cores)(
+        delayed(process_combination)(J, chi, alpha, beta) for (J, chi, alpha, beta) in param_combinations
+    )
+    
+    print("Parallel data processing completed.")
+    
+    # Filter out None results
+    results = [res for res in results if res is not None]
+    
+    # -------------------------------
+    # 8. Find Pareto Optimal Points for Each Combination of Alpha and Beta
+    # -------------------------------
+    pareto_points = []
+    for J in J_values:
+        for alpha in alpha_values:
+            for beta in beta_values:
+                # Filter results for chi = 0 and specific alpha, beta
+                base_results = [res for res in results if res[0] == J and res[1] == 0 and res[2] == alpha and res[3] == beta]
+                if not base_results:
+                    continue
+                base_result = base_results[0]
+                snr_base = base_result[4]
+                rel_err_base = base_result[5]
+                
+                # Find Pareto optimal points for chi > 0 with the same alpha, beta
+                for res in results:
+                    if res[0] == J and res[1] > 0 and res[2] == alpha and res[3] == beta:
+                        _, _, _, _, snr_chi, rel_err_chi = res
+                        if snr_chi > snr_base and rel_err_chi < rel_err_base:
+                            pareto_points.append(res)
+    
+    # -------------------------------
+    # 9. Plot Pareto Optimal Points
+    # -------------------------------
+
+    def plot_pareto_optimal(pareto_points):
+        if not pareto_points:
+            print("No Pareto optimal points found.")
+            return
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Extract data for plotting
+        J_vals, chi_vals, alpha_vals, beta_vals, snr_vals, rel_err_vals = zip(*pareto_points)
+
+        # Scatter plot of Pareto optimal points
+        scatter = ax.scatter(rel_err_vals, snr_vals, c=chi_vals, cmap='viridis', s=50, edgecolors='k', alpha=0.7)
+        cbar = plt.colorbar(scatter, ax=ax)
+        cbar.set_label(r'Squeezing Strength ($\chi$)', fontsize=14)
+
+        # Set labels and title
+        ax.set_xlabel(r'Relative Error ($10^{x}$)', fontsize=14)
+        ax.set_ylabel('Signal-to-Noise Ratio (SNR)', fontsize=14)
+        ax.set_title('Pareto Optimal Front for SNR and Relative Error', fontsize=16)
+        ax.set_xscale('log')  # Set x-axis to log scale to reflect 10^x labeling
+        ax.set_xticks([10**i for i in range(-5, -1)])
+        ax.set_xticklabels([f'$10^{{{i}}}$' for i in range(-5, -1)])  # Set x-axis ticks as powers of 10
+
+        # Save the plot
+        filename = "Pareto_Optimal_Front.pdf"
+        filepath = os.path.join(output_dir, filename)
+        plt.savefig(filepath, format='pdf')
+        plt.show()
+
+    # Plot the Pareto optimal points
+    plot_pareto_optimal(pareto_points)
+
+    # -------------------------------
+    # 10. Output Statistics for Pareto Optimal Points
+    # -------------------------------
+
+    def output_pareto_statistics(pareto_points, results):
+        if not pareto_points:
+            print("No Pareto optimal points to display statistics for.")
+            return
+
+        num_points = len(pareto_points)
+        print(f"Number of Pareto Optimal Points: {num_points}\n")
+
+        # Calculate and display summary statistics
+        snr_vals = [point[4] for point in pareto_points]
+        rel_err_vals = [point[5] for point in pareto_points if point[5] > 1e-10]  # Filter out extremely low relative errors for meaningful statistics
+
+        print("Statistics for Pareto Optimal Points:")
+        # Find the point with the lowest relative error
+        min_rel_err_point = min(pareto_points, key=lambda x: x[5])
+        J_min, chi_min, alpha_min, beta_min, snr_min, rel_err_min = min_rel_err_point
+        print(f"Lowest Relative Error Point:")
+        print(f"  - J: {J_min}")
+        print(f"  - Chi: {chi_min}")
+        print(f"  - Alpha: {alpha_min:.4f}")
+        print(f"  - Beta: {beta_min:.4f}")
+        print(f"  - SNR: {snr_min:.2f}")
+        print(f"  - Relative Error: {rel_err_min:.4e}")
+        print(f"  - Average SNR: {np.mean(snr_vals):.2f}")
+        print(f"  - Max SNR: {np.max(snr_vals):.2f}")
+        print(f"  - Min SNR: {np.min(snr_vals):.2f}\n")
+        print(f"  - Average Relative Error: {np.mean(rel_err_vals):.4f}")
+        print(f"  - Max Relative Error: {np.max(rel_err_vals):.4f}")
+        print(f"  - Min Relative Error: {np.min(rel_err_vals):.4f}")
+
+    # Output statistics for Pareto optimal points
+    output_pareto_statistics(pareto_points, results)
+
+    print("Pareto optimal analysis completed.")
+
+if __name__ == "__main__":
+    main()
