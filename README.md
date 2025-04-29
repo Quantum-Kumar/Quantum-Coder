@@ -39,7 +39,6 @@ Welcome! I am a Quantum Researcher & Computational Scientist with expertise in q
 🔬 [Computational Simulations](#) – High-performance numerical solutions for physical phenomena.  
 
 
-📞 Let's Connect!  
 
 I am actively seeking research roles in quantum computing, scientific computing, and data science. Open to collaborations!  
 
