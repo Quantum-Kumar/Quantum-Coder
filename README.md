@@ -2,7 +2,7 @@ Quantum Computing & Computational Research 🧑‍🔬💡
 
 Welcome! I am a Quantum Researcher & Computational Scientist with expertise in quantum algorithms, astrophysical modeling, and numerical simulations. My work spans quantum sensing, machine learning applications in physics, and high-performance computing.  
 
-📌 🔗 [Thesis Link](#) (https://www.proquest.com/dissertations-theses/advantages-ias-protocol-squeezed-states/docview/3165656828/se-2)  
+📌 🔗 [Thesis Link](https://www.proquest.com/dissertations-theses/advantages-ias-protocol-squeezed-states/docview/3165656828/se-2)  
 
 
 🔬 Research Overview  
