@@ -34,7 +34,7 @@ Welcome! I am a Quantum Researcher & Computational Scientist with expertise in q
 
 ## 📂 Featured Projects  
 
-🚀 [Quantum Sensing & Algorithms](#) – Optimizing quantum state measurements for high-fidelity gate operations.  
+🚀 [Quantum Sensing & Algorithms](https://github.com/Quantum-Kumar/Quantum-Coder/tree/main/pareto_fft_analysis) – Optimizing quantum state measurements for high-fidelity gate operations.  
 🌌 [Astrophysical Data Modeling](#) – Analyzing stellar dynamics with machine learning techniques.  
 🔬 [Computational Simulations](#) – High-performance numerical solutions for physical phenomena.  
 
