@@ -25,14 +25,10 @@ All original lab content is publicly available at the [QGSS 2025 GitHub reposito
 
 ```bash
 qgss-2025-labs/
-├── lab_1/
-│   └── solution.ipynb
-├── lab_2/
-│   └── solution.ipynb
-├── lab_3/
-│   └── solution.ipynb
-├── lab_4/
-│   └── solution.ipynb
+├── qgssr.ipynb
+├── qgssr2.ipynb
+├── qgssr3.ipynb
+├── qgssr4.ipynb
 └── README.md
 ````
 
