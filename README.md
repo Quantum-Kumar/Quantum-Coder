@@ -42,7 +42,7 @@ Welcome! I am a Quantum Researcher & Computational Scientist with expertise in q
 
 ## 📂 Featured Projects  
 
-🧪 [Qiskit Global Summer School 2025 – Lab Solutions](https://github.com/Quantum-Kumar/Quantum-Coder/tree/main/QGSS202)  
+🧪 [Qiskit Global Summer School 2025 – Lab Solutions](https://github.com/Quantum-Kumar/Quantum-Coder/tree/main/QGSS2025)  
 This repository contains my extracted and completed solutions from the Qiskit Global Summer School 2025. These labs were part of the certification program and provide hands-on experience with foundational and advanced quantum computing concepts using Qiskit.
 
 - **Lab 1: Recreating Famous Experiments at Home**  
