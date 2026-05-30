@@ -42,6 +42,15 @@ Welcome! I am a Quantum Researcher & Computational Scientist with expertise in q
 
 ## 📂 Featured Projects  
 
+### ⚛️ Additional Quantum Hardware & Simulation Projects
+- [Neutral Atom Characterization on QuEra Aquila](./Quantum_Projects/Neutral_Atom_Characterization) - Executed Analog Hamiltonian Simulation (AHS) programs on QuEra’s Aquila processor.
+- [Hamiltonian Learning & Adaptive Calibration (IAS Framework)](./Quantum_Projects/Hamiltonian_Learning_Adaptive_Calibration) - Developed IAS routines for extracting Hamiltonian parameters.
+- [Rigetti Hardware Experiments](./Quantum_Projects/Rigetti_Hardware_Experiments) - Ran Rabi oscillation and Ramsey interferometry on the Cepheus-1-108Q superconducting quantum processor.
+- [Ramsey Characterization on IBM Quantum Hardware](./Quantum_Projects/Ramsey_Characterization) - Implemented Ramsey pulse sequences to estimate coherence times and monitor calibration drift.
+- [Quantum Error Correction Simulations](./Quantum_Projects/Quantum_Error_Correction) - Simulated Surface Code, Steane, and Toric Code circuits using STIM and Qiskit.
+
+---
+
 🧪 [Qiskit Global Summer School 2025 – Lab Solutions](https://github.com/Quantum-Kumar/Quantum-Coder/tree/main/QGSS2025)  
 This repository contains my extracted and completed solutions from the Qiskit Global Summer School 2025. These labs were part of the certification program and provide hands-on experience with foundational and advanced quantum computing concepts using Qiskit.
 
